@@ -83,15 +83,15 @@ def generate_gemini_answer(prompt, is_json=False):
         config = types.GenerateContentConfig(
             response_mime_type="application/json" if is_json else "text/plain" 
         )
+        # 👇 แก้ไขบรรทัดนี้บรรทัดเดียว เป็นรุ่น 8b ซึ่งเบาและรันผ่านง่ายที่สุด
         response = gmn_client.models.generate_content(
-            model='gemini-1.5-flash', 
+            model='gemini-1.5-flash-8b', 
             contents=prompt,
             config=config
         )
         return response.text
     except Exception as e:
         return f"AI Error: {e}"
-
 # ==========================================
 # 4. CORE LOGIC
 # ==========================================
