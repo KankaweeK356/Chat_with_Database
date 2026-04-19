@@ -47,7 +47,7 @@ data_dict_text = """
 """
 
 # ==========================================
-# 2. PROMPT TEMPLATES (ปรับให้สั้น กระชับ ประหยัด Quota)
+# 2. PROMPT TEMPLATES 
 # ==========================================
 script_prompt = """
 คุณคือระบบแปลงคำถามเป็น SQLite (ส่งคืนแค่ JSON ห้ามมีข้อความอื่น)
@@ -83,7 +83,6 @@ def generate_gemini_answer(prompt, is_json=False):
         config = types.GenerateContentConfig(
             response_mime_type="application/json" if is_json else "text/plain" 
         )
-        # ใช้รุ่น 1.5-flash ซึ่งกินโควต้าน้อยกว่า รันได้เยอะกว่ามาก และเสถียรสุดๆ
         response = gmn_client.models.generate_content(
             model='gemini-1.5-flash', 
             contents=prompt,
