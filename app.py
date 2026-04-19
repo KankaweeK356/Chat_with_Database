@@ -169,3 +169,30 @@ def generate_summary_answer(user_question):
     answer_prompt_input = answer_prompt.format(
         question=user_question, 
         raw_data=df_result.to_string()
+    )
+    
+    return generate_gemini_answer(answer_prompt_input, is_json=False)
+
+# ==========================================
+# 5. USER INTERFACE (STREAMLIT)
+# ==========================================
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+st.title('Gemini Chat with Database')
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("พิมพ์คำถามที่นี่..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+        
+    with st.chat_message("assistant"):
+        with st.spinner('กำลังวิเคราะห์และดึงข้อมูล...'):
+            response = generate_summary_answer(prompt)
+            st.markdown(response)
+            
+    st.session_state.messages.append({"role": "assistant", "content": response})
