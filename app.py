@@ -4,17 +4,44 @@ import sqlite3
 from google import genai
 from google.genai import types
 import json
+import os
 
 # ==========================================
 # 1. SETUP & CONFIGURATION
 # ==========================================
-# ดึง API Key
 gemini_api_key = st.secrets["gemini_api_key"]
 gmn_client = genai.Client(api_key=gemini_api_key)
 
-# รายละเอียดฐานข้อมูล
 db_name = 'test_database.db'
 data_table = 'transactions'
+
+# ---------------------------------------------------------
+# ✨ เพิ่มระบบสร้างตารางอัตโนมัติ (Auto Database Setup) ✨
+# ---------------------------------------------------------
+@st.cache_resource
+def init_database():
+    """ดึงข้อมูลจาก CSV มาสร้างเป็นตารางใน SQLite อัตโนมัติ (ทำแค่ครั้งเดียว)"""
+    csv_file = 'test_transactions_2026.csv' # ชื่อไฟล์ CSV ของคุณ
+    
+    # ถ้ามีไฟล์ CSV อยู่บนระบบ
+    if os.path.exists(csv_file):
+        conn = sqlite3.connect(db_name)
+        cursor = conn.cursor()
+        
+        # เช็คว่ามีตาราง transactions สร้างไว้หรือยัง
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'")
+        
+        # ถ้ายังไม่มีตาราง ให้สร้างใหม่จากไฟล์ CSV
+        if cursor.fetchone() is None:
+            df_csv = pd.read_csv(csv_file)
+            df_csv.to_sql('transactions', conn, if_exists='replace', index=False)
+            
+        conn.close()
+
+# รันฟังก์ชันสร้างฐานข้อมูลทันทีที่เปิดแอป
+init_database()
+# ---------------------------------------------------------
+
 data_dict_text = """
 - trx_date: วันที่ทำธุรกรรม
 - trx_no: หมายเลขธุรกรรม
@@ -121,7 +148,6 @@ def generate_gemini_answer(prompt, is_json=False):
 # 4. CORE LOGIC
 # ==========================================
 def generate_summary_answer(user_question):
-    # 1. ดึง Schema มาใช้ใน Prompt เพื่อสร้าง SQL Script
     script_prompt_input = script_prompt.format(
         question=user_question, 
         table_name=data_table, 
@@ -135,47 +161,11 @@ def generate_summary_answer(user_question):
     except:
         return "ขออภัย ไม่สามารถสร้างคำสั่ง SQL ได้"
 
-    # 2. Query ข้อมูลจาก Database
     df_result = query_to_dataframe(sql_script, db_name)
     
     if isinstance(df_result, str):
-        return df_result # คืนค่า Error ถ้า Query พลาด
+        return df_result 
         
-    # 3. ส่งข้อมูลให้ Gemini สรุปคำตอบเป็นภาษาคน
     answer_prompt_input = answer_prompt.format(
         question=user_question, 
         raw_data=df_result.to_string()
-    )
-    
-    return generate_gemini_answer(answer_prompt_input, is_json=False)
-
-# ==========================================
-# 5. USER INTERFACE (STREAMLIT)
-# ==========================================
-# ตรวจสอบและสร้าง Chat History ใน Session State
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-st.title('Gemini Chat with Database')
-
-# แสดงประวัติการสนทนาเก่า
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# รับ Input จากผู้ใช้
-if prompt := st.chat_input("พิมพ์คำถามที่นี่..."):
-    
-    # เก็บและแสดงข้อความ User
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-        
-    # ประมวลผลและแสดงข้อความ Assistant
-    with st.chat_message("assistant"):
-        with st.spinner('กำลังหาคำตอบ...'):
-            response = generate_summary_answer(prompt)
-            st.markdown(response)
-            
-    # เก็บคำตอบลง Session
-    st.session_state.messages.append({"role": "assistant", "content": response})
